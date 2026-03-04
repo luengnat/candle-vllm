@@ -20,12 +20,14 @@ pub enum PagedAttentionDType {
 const COPY_BLOCKS: &str = include_str!("copy_blocks.metal");
 const RESHAPE_AND_CACHE: &str = include_str!("reshape_and_cache.metal");
 const PAGEDATTENTION: &str = include_str!("pagedattention.metal");
+const TENSOR_API: &str = include_str!("tensor_api.metal");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Source {
     CopyBlocks,
     ReshapeAndCache,
     PagedAttention,
+    TensorApi,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -78,6 +80,7 @@ impl Kernels {
             Source::CopyBlocks => COPY_BLOCKS,
             Source::ReshapeAndCache => RESHAPE_AND_CACHE,
             Source::PagedAttention => PAGEDATTENTION,
+            Source::TensorApi => TENSOR_API,
         }
     }
 
