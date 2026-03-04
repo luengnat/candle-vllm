@@ -20,12 +20,14 @@ pub enum PagedAttentionDType {
 const COPY_BLOCKS: &str = include_str!("copy_blocks.metal");
 const RESHAPE_AND_CACHE: &str = include_str!("reshape_and_cache.metal");
 const PAGEDATTENTION: &str = include_str!("pagedattention.metal");
+const PAGED_ATTENTION_OPTIMIZED: &str = include_str!("paged_attention_optimized.metal");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Source {
     CopyBlocks,
     ReshapeAndCache,
     PagedAttention,
+    PagedAttentionOptimized,
 }
 
 #[derive(thiserror::Error, Debug)]
