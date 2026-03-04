@@ -71,6 +71,9 @@ crossbeam = "0.8.4"
 colored = { version = "3.0.0" }
 local-ip-address = "0.6.5"
 
+[dev-dependencies]
+criterion = "0.5"
+
 [features]
 accelerate = ["dep:accelerate-src", "candle-core/accelerate", "candle-nn/accelerate"]
 cuda = ["candle-core/cuda", "candle-nn/cuda", "attention-rs/cuda"]
