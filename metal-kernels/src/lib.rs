@@ -4,7 +4,7 @@ use metal::{
     FunctionConstantValues, Library, MTLDataType, MTLSize, NSUInteger,
 };
 use once_cell::sync::OnceCell;
-use std::sync::RwLock;
+use std::sync::{OnceLock, RwLock};
 use std::{collections::HashMap, ffi::c_void};
 
 pub mod utils;
@@ -660,14 +660,17 @@ pub fn paged_attention_v2(
 
 #[cfg(feature = "metal4")]
 fn metal4_is_available() -> bool {
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    {
-        objc2_metal::MTLCreateSystemDefaultDevice().is_some()
-    }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-    {
-        false
-    }
+    static METAL4_AVAILABLE: OnceLock<bool> = OnceLock::new();
+    *METAL4_AVAILABLE.get_or_init(|| {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            objc2_metal::MTLCreateSystemDefaultDevice().is_some()
+        }
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            false
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
