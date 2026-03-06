@@ -22,8 +22,8 @@ anyhow = "1.0.75"
 rand = "0.9.0"
 rayon="1.10.0"
 hyper = { version = "0.14", features = ["full"] }
-candle-core = { git = "file:///Users/nat/dev/candle-gb", version = "0.8.3", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
-candle-nn = { git = "file:///Users/nat/dev/candle-gb", version = "0.8.3", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
+candle-core = { git = "https://github.com/luengnat/candle.git", version = "0.8.3", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
+candle-nn = { git = "https://github.com/luengnat/candle.git", version = "0.8.3", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
 dyn-fmt = "0.4.0"
 serde = { version = "1.0.190", features = ["serde_derive"] }
 tokenizers = "0.21.2"
@@ -45,7 +45,7 @@ dirs = "5.0.1"
 minijinja = { version = "2.10.2", features = ["builtins", "json"] }
 minijinja-contrib = { version = "2.10.2", features = ["pycompat"] }
 thiserror = "1.0.58"
-attention-rs = { git = "file:///Users/nat/dev/attention.rs", version="0.4.1", rev = "3ec4d7b93380df3eadef6a0da25a3f901277ff3e" }
+attention-rs = { git = "https://github.com/luengnat/attention.rs.git", version="0.4.1", rev = "3ec4d7b93380df3eadef6a0da25a3f901277ff3e" }
 metal = { version = "0.27.0", features = ["mps"], optional = true }
 objc2 = { version = "0.6", optional = true }
 objc2-metal = { version = "0.3", optional = true }
@@ -91,6 +91,6 @@ mpi = ["candle-core/nccl", "dep:mpi"]
 graph = ["attention-rs/graph", "candle-core/graph"]
 
 [patch."https://github.com/guoqingbao/candle.git"]
-candle-core = { git = "file:///Users/nat/dev/candle-gb", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
-candle-nn = { git = "file:///Users/nat/dev/candle-gb", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
-candle-metal-kernels = { git = "file:///Users/nat/dev/candle-gb", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
+candle-core = { git = "https://github.com/luengnat/candle.git", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
+candle-nn = { git = "https://github.com/luengnat/candle.git", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
+candle-metal-kernels = { git = "https://github.com/luengnat/candle.git", rev = "5d5f08f64a2a4fc209264a3266afde9d853f46aa" }
