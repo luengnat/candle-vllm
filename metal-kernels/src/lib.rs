@@ -73,7 +73,7 @@ impl Kernels {
         }
     }
 
-    fn get_library_source(&self, source: Source) -> &'static str {
+    pub fn get_library_source(&self, source: Source) -> &'static str {
         match source {
             Source::CopyBlocks => COPY_BLOCKS,
             Source::ReshapeAndCache => RESHAPE_AND_CACHE,
@@ -281,7 +281,7 @@ pub fn call_reshape_and_cache(
     Ok(())
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Value {
     Bool(bool),
 }
@@ -305,15 +305,15 @@ impl Value {
 /// Not true, good enough for our purposes.
 impl Eq for Value {}
 
-#[derive(Debug, Eq, PartialEq, Hash)]
-struct ConstantValues(Vec<(usize, Value)>);
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct ConstantValues(Vec<(usize, Value)>);
 
 impl ConstantValues {
     pub fn new(values: Vec<(usize, Value)>) -> Self {
         Self(values)
     }
 
-    fn function_constant_values(&self) -> FunctionConstantValues {
+    pub fn function_constant_values(&self) -> FunctionConstantValues {
         let f = FunctionConstantValues::new();
         for (index, value) in &self.0 {
             let ty = value.data_type();
@@ -656,4 +656,209 @@ pub fn paged_attention_v2(
         encoder.dispatch_thread_groups(thread_groups_count, thread_group_size);
     }
     Ok(())
+}
+
+#[cfg(feature = "metal4")]
+fn metal4_is_available() -> bool {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        objc2_metal::MTLCreateSystemDefaultDevice().is_some()
+    }
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    {
+        false
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn call_reshape_and_cache_metal4(
+    device: &Device,
+    ep: impl EncoderProvider,
+    kernels: &Kernels,
+    ty: PagedAttentionDType,
+    key: &Buffer,
+    key_offset: usize,
+    value: &Buffer,
+    value_offset: usize,
+    key_cache: &Buffer,
+    key_cache_offset: usize,
+    value_cache: &Buffer,
+    value_cache_offset: usize,
+    slot_mapping: &Buffer,
+    slot_mapping_offset: usize,
+    num_tokens: i32,
+    num_heads: i32,
+    head_size: i32,
+    block_size: i32,
+    x: i32,
+    key_stride: i32,
+    value_stride: i32,
+) -> Result<(), MetalKernelError> {
+    #[cfg(feature = "metal4")]
+    {
+        let _ = metal4_is_available();
+    }
+    call_reshape_and_cache(
+        device,
+        ep,
+        kernels,
+        ty,
+        key,
+        key_offset,
+        value,
+        value_offset,
+        key_cache,
+        key_cache_offset,
+        value_cache,
+        value_cache_offset,
+        slot_mapping,
+        slot_mapping_offset,
+        num_tokens,
+        num_heads,
+        head_size,
+        block_size,
+        x,
+        key_stride,
+        value_stride,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn paged_attention_v1_metal4(
+    device: &Device,
+    ep: impl EncoderProvider,
+    kernels: &Kernels,
+    ty: PagedAttentionDType,
+    q: &Buffer,
+    q_offset: usize,
+    k_cache: &Buffer,
+    k_cache_offset: usize,
+    v_cache: &Buffer,
+    v_cache_offset: usize,
+    block_tables: &Buffer,
+    block_tables_offset: usize,
+    context_lens: &Buffer,
+    context_lens_offset: usize,
+    alibi_storage_and_offset: Option<(MetalStorage, usize)>,
+    output: &Buffer,
+    num_kv_heads: i32,
+    scale: f32,
+    softcapping: f32,
+    block_size: i32,
+    max_context_len: i32,
+    num_seqs: i32,
+    num_heads: i32,
+    head_size: i32,
+    max_num_blocks_per_seq: i32,
+    q_stride: i32,
+    kv_block_stride: i32,
+    kv_head_stride: i32,
+) -> Result<(), MetalKernelError> {
+    #[cfg(feature = "metal4")]
+    {
+        let _ = metal4_is_available();
+    }
+    paged_attention_v1(
+        device,
+        ep,
+        kernels,
+        ty,
+        q,
+        q_offset,
+        k_cache,
+        k_cache_offset,
+        v_cache,
+        v_cache_offset,
+        block_tables,
+        block_tables_offset,
+        context_lens,
+        context_lens_offset,
+        alibi_storage_and_offset,
+        output,
+        num_kv_heads,
+        scale,
+        softcapping,
+        block_size,
+        max_context_len,
+        num_seqs,
+        num_heads,
+        head_size,
+        max_num_blocks_per_seq,
+        q_stride,
+        kv_block_stride,
+        kv_head_stride,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn paged_attention_v2_metal4(
+    device: &Device,
+    ep: impl EncoderProvider,
+    kernels: &Kernels,
+    ty: PagedAttentionDType,
+    exp_sums: &Buffer,
+    max_logits: &Buffer,
+    q: &Buffer,
+    q_offset: usize,
+    k_cache: &Buffer,
+    k_cache_offset: usize,
+    v_cache: &Buffer,
+    v_cache_offset: usize,
+    block_tables: &Buffer,
+    block_tables_offset: usize,
+    context_lens: &Buffer,
+    context_lens_offset: usize,
+    alibi_storage_and_offset: Option<(MetalStorage, usize)>,
+    tmp_out: &Buffer,
+    output: &Buffer,
+    num_kv_heads: i32,
+    scale: f32,
+    softcapping: f32,
+    block_size: i32,
+    max_context_len: i32,
+    num_seqs: i32,
+    num_heads: i32,
+    head_size: i32,
+    max_num_blocks_per_seq: i32,
+    q_stride: i32,
+    kv_block_stride: i32,
+    kv_head_stride: i32,
+) -> Result<(), MetalKernelError> {
+    #[cfg(feature = "metal4")]
+    {
+        let _ = metal4_is_available();
+    }
+    paged_attention_v2(
+        device,
+        ep,
+        kernels,
+        ty,
+        exp_sums,
+        max_logits,
+        q,
+        q_offset,
+        k_cache,
+        k_cache_offset,
+        v_cache,
+        v_cache_offset,
+        block_tables,
+        block_tables_offset,
+        context_lens,
+        context_lens_offset,
+        alibi_storage_and_offset,
+        tmp_out,
+        output,
+        num_kv_heads,
+        scale,
+        softcapping,
+        block_size,
+        max_context_len,
+        num_seqs,
+        num_heads,
+        head_size,
+        max_num_blocks_per_seq,
+        q_stride,
+        kv_block_stride,
+        kv_head_stride,
+    )
 }

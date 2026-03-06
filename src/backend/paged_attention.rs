@@ -5,6 +5,8 @@ use candle::CudaStorage;
 use candle::MetalStorage;
 use candle::{CpuStorage, DType, Layout, Result, Shape, Storage, Tensor};
 use candle_core as candle;
+#[cfg(feature = "metal")]
+use crate::backend::metal_backend_selector::{select_metal_backend, MetalBackend};
 #[allow(dead_code)]
 struct PagedAttention {
     softmax_scale: f32,
@@ -377,37 +379,74 @@ impl PagedAttention {
         let out = dev.new_buffer(elem_count, dtype, "paged-attention-out")?;
 
         if use_v1 {
-            metal_kernels::paged_attention_v1(
-                dev.device(),
-                &command_buffer,
-                metal_kernels::Kernels::default(),
-                internal_type,
-                q.buffer(),
-                q_l.start_offset() * q.dtype().size_in_bytes(),
-                kc.buffer(),
-                kc_l.start_offset() * kc.dtype().size_in_bytes(),
-                vc.buffer(),
-                vc_l.start_offset() * vc.dtype().size_in_bytes(),
-                bt.buffer(),
-                bt_l.start_offset() * bt.dtype().size_in_bytes(),
-                cl.buffer(),
-                cl_l.start_offset() * cl.dtype().size_in_bytes(),
-                alibi_storage_and_offset,
-                &out,
-                num_kv_heads as i32,
-                self.softmax_scale,
-                self.softcapping,
-                block_size as i32,
-                self.max_context_len as i32,
-                num_seqs as i32,
-                num_heads as i32,
-                head_size as i32,
-                max_num_blocks_per_seq as i32,
-                q_stride as i32,
-                kv_block_stride as i32,
-                kv_head_stride as i32,
-            )
-            .map_err(candle_core::Error::wrap)?;
+            match select_metal_backend(dev)? {
+                MetalBackend::Metal4 => {
+                    metal_kernels::paged_attention_v1_metal4(
+                        dev.device(),
+                        &command_buffer,
+                        metal_kernels::Kernels::default(),
+                        internal_type,
+                        q.buffer(),
+                        q_l.start_offset() * q.dtype().size_in_bytes(),
+                        kc.buffer(),
+                        kc_l.start_offset() * kc.dtype().size_in_bytes(),
+                        vc.buffer(),
+                        vc_l.start_offset() * vc.dtype().size_in_bytes(),
+                        bt.buffer(),
+                        bt_l.start_offset() * bt.dtype().size_in_bytes(),
+                        cl.buffer(),
+                        cl_l.start_offset() * cl.dtype().size_in_bytes(),
+                        alibi_storage_and_offset,
+                        &out,
+                        num_kv_heads as i32,
+                        self.softmax_scale,
+                        self.softcapping,
+                        block_size as i32,
+                        self.max_context_len as i32,
+                        num_seqs as i32,
+                        num_heads as i32,
+                        head_size as i32,
+                        max_num_blocks_per_seq as i32,
+                        q_stride as i32,
+                        kv_block_stride as i32,
+                        kv_head_stride as i32,
+                    )
+                    .map_err(candle_core::Error::wrap)?;
+                }
+                MetalBackend::Metal3 => {
+                    metal_kernels::paged_attention_v1(
+                        dev.device(),
+                        &command_buffer,
+                        metal_kernels::Kernels::default(),
+                        internal_type,
+                        q.buffer(),
+                        q_l.start_offset() * q.dtype().size_in_bytes(),
+                        kc.buffer(),
+                        kc_l.start_offset() * kc.dtype().size_in_bytes(),
+                        vc.buffer(),
+                        vc_l.start_offset() * vc.dtype().size_in_bytes(),
+                        bt.buffer(),
+                        bt_l.start_offset() * bt.dtype().size_in_bytes(),
+                        cl.buffer(),
+                        cl_l.start_offset() * cl.dtype().size_in_bytes(),
+                        alibi_storage_and_offset,
+                        &out,
+                        num_kv_heads as i32,
+                        self.softmax_scale,
+                        self.softcapping,
+                        block_size as i32,
+                        self.max_context_len as i32,
+                        num_seqs as i32,
+                        num_heads as i32,
+                        head_size as i32,
+                        max_num_blocks_per_seq as i32,
+                        q_stride as i32,
+                        kv_block_stride as i32,
+                        kv_head_stride as i32,
+                    )
+                    .map_err(candle_core::Error::wrap)?;
+                }
+            }
         } else {
             let tmp_out_shape = Shape::from((num_seqs, num_heads, max_num_partitions, head_size));
             let exp_sums_shape = Shape::from((num_seqs, num_heads, max_num_partitions));
@@ -424,40 +463,80 @@ impl PagedAttention {
                 "paged-attention-maxlogits",
             )?;
 
-            metal_kernels::paged_attention_v2(
-                dev.device(),
-                &command_buffer,
-                metal_kernels::Kernels::default(),
-                internal_type,
-                &exp_sums,
-                &max_logits,
-                q.buffer(),
-                q_l.start_offset() * q.dtype().size_in_bytes(),
-                kc.buffer(),
-                kc_l.start_offset() * kc.dtype().size_in_bytes(),
-                vc.buffer(),
-                vc_l.start_offset() * vc.dtype().size_in_bytes(),
-                bt.buffer(),
-                bt_l.start_offset() * bt.dtype().size_in_bytes(),
-                cl.buffer(),
-                cl_l.start_offset() * cl.dtype().size_in_bytes(),
-                alibi_storage_and_offset,
-                &tmp_out,
-                &out,
-                num_kv_heads as i32,
-                self.softmax_scale,
-                self.softcapping,
-                block_size as i32,
-                self.max_context_len as i32,
-                num_seqs as i32,
-                num_heads as i32,
-                head_size as i32,
-                max_num_blocks_per_seq as i32,
-                q_stride as i32,
-                kv_block_stride as i32,
-                kv_head_stride as i32,
-            )
-            .map_err(candle_core::Error::wrap)?;
+            match select_metal_backend(dev)? {
+                MetalBackend::Metal4 => {
+                    metal_kernels::paged_attention_v2_metal4(
+                        dev.device(),
+                        &command_buffer,
+                        metal_kernels::Kernels::default(),
+                        internal_type,
+                        &exp_sums,
+                        &max_logits,
+                        q.buffer(),
+                        q_l.start_offset() * q.dtype().size_in_bytes(),
+                        kc.buffer(),
+                        kc_l.start_offset() * kc.dtype().size_in_bytes(),
+                        vc.buffer(),
+                        vc_l.start_offset() * vc.dtype().size_in_bytes(),
+                        bt.buffer(),
+                        bt_l.start_offset() * bt.dtype().size_in_bytes(),
+                        cl.buffer(),
+                        cl_l.start_offset() * cl.dtype().size_in_bytes(),
+                        alibi_storage_and_offset,
+                        &tmp_out,
+                        &out,
+                        num_kv_heads as i32,
+                        self.softmax_scale,
+                        self.softcapping,
+                        block_size as i32,
+                        self.max_context_len as i32,
+                        num_seqs as i32,
+                        num_heads as i32,
+                        head_size as i32,
+                        max_num_blocks_per_seq as i32,
+                        q_stride as i32,
+                        kv_block_stride as i32,
+                        kv_head_stride as i32,
+                    )
+                    .map_err(candle_core::Error::wrap)?;
+                }
+                MetalBackend::Metal3 => {
+                    metal_kernels::paged_attention_v2(
+                        dev.device(),
+                        &command_buffer,
+                        metal_kernels::Kernels::default(),
+                        internal_type,
+                        &exp_sums,
+                        &max_logits,
+                        q.buffer(),
+                        q_l.start_offset() * q.dtype().size_in_bytes(),
+                        kc.buffer(),
+                        kc_l.start_offset() * kc.dtype().size_in_bytes(),
+                        vc.buffer(),
+                        vc_l.start_offset() * vc.dtype().size_in_bytes(),
+                        bt.buffer(),
+                        bt_l.start_offset() * bt.dtype().size_in_bytes(),
+                        cl.buffer(),
+                        cl_l.start_offset() * cl.dtype().size_in_bytes(),
+                        alibi_storage_and_offset,
+                        &tmp_out,
+                        &out,
+                        num_kv_heads as i32,
+                        self.softmax_scale,
+                        self.softcapping,
+                        block_size as i32,
+                        self.max_context_len as i32,
+                        num_seqs as i32,
+                        num_heads as i32,
+                        head_size as i32,
+                        max_num_blocks_per_seq as i32,
+                        q_stride as i32,
+                        kv_block_stride as i32,
+                        kv_head_stride as i32,
+                    )
+                    .map_err(candle_core::Error::wrap)?;
+                }
+            }
         }
 
         let newstorage =
@@ -793,30 +872,60 @@ impl ReshapeCache {
         let command_buffer = dev.command_buffer()?;
         command_buffer.set_label("reshape-and-cache");
 
-        metal_kernels::call_reshape_and_cache(
-            dev.device(),
-            &command_buffer,
-            metal_kernels::Kernels::default(),
-            internal_type,
-            k.buffer(),
-            k_l.start_offset() * k.dtype().size_in_bytes(),
-            v.buffer(),
-            v_l.start_offset() * value.dtype().size_in_bytes(),
-            kc.buffer(),
-            kc_l.start_offset() * key_cache.dtype().size_in_bytes(),
-            vc.buffer(),
-            vc_l.start_offset() * value_cache.dtype().size_in_bytes(),
-            s.buffer(),
-            s_l.start_offset() * slot_mapping.dtype().size_in_bytes(),
-            num_tokens as i32,
-            num_heads as i32,
-            head_size as i32,
-            block_size as i32,
-            x as i32,
-            key_stride,
-            value_stride,
-        )
-        .map_err(candle_core::Error::wrap)?;
+        match select_metal_backend(dev)? {
+            MetalBackend::Metal4 => {
+                metal_kernels::call_reshape_and_cache_metal4(
+                    dev.device(),
+                    &command_buffer,
+                    metal_kernels::Kernels::default(),
+                    internal_type,
+                    k.buffer(),
+                    k_l.start_offset() * k.dtype().size_in_bytes(),
+                    v.buffer(),
+                    v_l.start_offset() * value.dtype().size_in_bytes(),
+                    kc.buffer(),
+                    kc_l.start_offset() * key_cache.dtype().size_in_bytes(),
+                    vc.buffer(),
+                    vc_l.start_offset() * value_cache.dtype().size_in_bytes(),
+                    s.buffer(),
+                    s_l.start_offset() * slot_mapping.dtype().size_in_bytes(),
+                    num_tokens as i32,
+                    num_heads as i32,
+                    head_size as i32,
+                    block_size as i32,
+                    x as i32,
+                    key_stride,
+                    value_stride,
+                )
+                .map_err(candle_core::Error::wrap)?;
+            }
+            MetalBackend::Metal3 => {
+                metal_kernels::call_reshape_and_cache(
+                    dev.device(),
+                    &command_buffer,
+                    metal_kernels::Kernels::default(),
+                    internal_type,
+                    k.buffer(),
+                    k_l.start_offset() * k.dtype().size_in_bytes(),
+                    v.buffer(),
+                    v_l.start_offset() * value.dtype().size_in_bytes(),
+                    kc.buffer(),
+                    kc_l.start_offset() * key_cache.dtype().size_in_bytes(),
+                    vc.buffer(),
+                    vc_l.start_offset() * value_cache.dtype().size_in_bytes(),
+                    s.buffer(),
+                    s_l.start_offset() * slot_mapping.dtype().size_in_bytes(),
+                    num_tokens as i32,
+                    num_heads as i32,
+                    head_size as i32,
+                    block_size as i32,
+                    x as i32,
+                    key_stride,
+                    value_stride,
+                )
+                .map_err(candle_core::Error::wrap)?;
+            }
+        }
 
         Ok(())
     }

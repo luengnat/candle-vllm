@@ -201,6 +201,9 @@ pub fn query_device_memory(device: &Device) -> Result<DeviceMemoryReport> {
             let total_bytes = metal.recommended_max_working_set_size();
             let used_bytes = metal.current_allocated_size();
             let free_bytes = total_bytes.saturating_sub(used_bytes);
+            let total_bytes = usize::try_from(total_bytes).map_err(candle::Error::wrap)?;
+            let used_bytes = usize::try_from(used_bytes).map_err(candle::Error::wrap)?;
+            let free_bytes = usize::try_from(free_bytes).map_err(candle::Error::wrap)?;
             Ok(DeviceMemoryReport {
                 total_bytes,
                 free_bytes,

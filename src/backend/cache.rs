@@ -5,13 +5,15 @@ use candle_core::{
     backend::BackendStorage, CpuStorage, Device, IndexOp, Layout, MetalDevice, MetalStorage,
     Result, Storage, Tensor, WithDType,
 };
+#[cfg(feature = "metal")]
+use crate::backend::metal_backend_selector::{select_metal_backend, MetalBackend};
 #[cfg(feature = "cuda")]
 use candle_core::{
     cuda_backend::cudarc::driver::{CudaSlice, DevicePtr},
     cuda_backend::CudaStorageSlice,
     Device, IndexOp, Result, Storage, Tensor,
 };
-use std::{collections::HashMap, iter::zip};
+use std::collections::HashMap;
 
 /// # Safety
 /// Unsafe due to passing pointers
@@ -52,7 +54,7 @@ pub unsafe fn copy_blocks(
     value_cache_ptrs.reserve_exact(num_layers as usize);
     let mut dtype = DType::F32;
 
-    for (key_cache, value_cache) in zip(&key_caches, &value_caches) {
+    for (key_cache, value_cache) in key_caches.iter().zip(value_caches.iter()) {
         key_cache.to_device(cache_dev)?;
         value_cache.to_device(cache_dev)?;
 
@@ -315,7 +317,7 @@ pub fn copy_blocks(
         .try_into()
         .unwrap();
 
-    for (key_cache, value_cache) in zip(&key_caches, &value_caches) {
+    for (key_cache, value_cache) in key_caches.iter().zip(value_caches.iter()) {
         key_cache.to_device(cache_dev)?;
         value_cache.to_device(cache_dev)?;
 
@@ -332,21 +334,42 @@ pub fn copy_blocks(
         let command_buffer = dev.command_buffer()?;
         command_buffer.set_label("copy-blocks");
 
-        attention_rs::metal_kernels::call_copy_blocks(
-            dev.device(),
-            &command_buffer,
-            attention_rs::metal_kernels::Kernels::default(),
-            key_cache.dtype(),
-            key_storage.buffer(),
-            key_offset * key_storage.dtype().size_in_bytes(),
-            value_storage.buffer(),
-            value_offset * value_storage.dtype().size_in_bytes(),
-            &block_mapping,
-            0,
-            num_pairs,
-            numel_per_block,
-        )
-        .map_err(candle_core::Error::wrap)?;
+        match select_metal_backend(dev)? {
+            MetalBackend::Metal4 => {
+                attention_rs::metal_kernels::call_copy_blocks_metal4(
+                    dev.device(),
+                    &command_buffer,
+                    attention_rs::metal_kernels::Kernels::default(),
+                    key_cache.dtype(),
+                    key_storage.buffer(),
+                    key_offset * key_storage.dtype().size_in_bytes(),
+                    value_storage.buffer(),
+                    value_offset * value_storage.dtype().size_in_bytes(),
+                    &block_mapping,
+                    0,
+                    num_pairs,
+                    numel_per_block,
+                )
+                .map_err(candle_core::Error::wrap)?;
+            }
+            MetalBackend::Metal3 => {
+                attention_rs::metal_kernels::call_copy_blocks(
+                    dev.device(),
+                    &command_buffer,
+                    attention_rs::metal_kernels::Kernels::default(),
+                    key_cache.dtype(),
+                    key_storage.buffer(),
+                    key_offset * key_storage.dtype().size_in_bytes(),
+                    value_storage.buffer(),
+                    value_offset * value_storage.dtype().size_in_bytes(),
+                    &block_mapping,
+                    0,
+                    num_pairs,
+                    numel_per_block,
+                )
+                .map_err(candle_core::Error::wrap)?;
+            }
+        }
     }
 
     Ok(())
